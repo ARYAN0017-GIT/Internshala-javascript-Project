@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Management Portal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <main class="app-container">
+        <header class="hero-section glass">
+            <h1 class="hero-title">Student Management Portal</h1>
+            <p class="hero-subtitle">Advanced Student Registration & Analytics System</p>
+        </header>
+
+        <div class="dashboard-grid">
+            <section class="registration-panel glass">
+                <h2 class="panel-header">Student Registration</h2>
+                <form id="registrationForm">
+                    <div class="input-group">
+                        <label class="input-label" for="fullName">Full Name</label>
+                        <input type="text" id="fullName" class="form-input" required>
+                        <div class="validation-message">Please enter a valid full name</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="studentID">Student ID</label>
+                        <input type="text" id="studentID" class="form-input" required>
+                        <div class="validation-message">Please enter a valid student ID</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="emailAddress">Email Address</label>
+                        <input type="email" id="emailAddress" class="form-input" required>
+                        <div class="validation-message">Please enter a valid email address</div>
+                    </div>
+                    <div class="input-group">
+                        <label class="input-label" for="phoneNumber">Phone Number</label>
+                        <input type="tel" id="phoneNumber" class="form-input" required>
+                        <div class="validation-message">Please enter a valid 10-digit phone number</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" id="submitButton">Register Student</button>
+                    <button type="button" class="btn btn-secondary" id="cancelButton" style="display: none;">Cancel Edit</button>
+                </form>
+            </section>
+
+            <aside class="analytics-panel glass">
+                <h2 class="panel-header">Analytics Dashboard</h2>
+                <div class="metric-card">
+                    <div class="metric-value" id="totalCount">0</div>
+                    <div class="metric-label">Registered Students</div>
+                </div>
+                <button class="btn btn-success" onclick="exportStudentData()">Export to CSV</button>
+                <button class="btn btn-warning" onclick="clearAllData()">Clear Database</button>
+            </aside>
+        </div>
+
+        <section class="student-directory glass">
+            <h2 class="panel-header">Student Directory</h2>
+            <div class="search-container">
+                <input type="text" id="searchQuery" class="search-input" placeholder="Search by name, ID, email, or phone..." oninput="performSearch()">
+            </div>
+            <table class="data-table" id="studentTable">
+                <thead class="table-header">
+                    <tr>
+                        <th>No.</th>
+                        <th>Full Name</th>
+                        <th>Student ID</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="studentTableBody">
+                </tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display: none;">
+                No students found. Register your first student to get started!
+            </div>
+        </section>
+    </main>
+
+    <div class="notification" id="alertNotification"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
