@@ -1,268 +1,215 @@
-const AppState = {
-    students: [],
-    editingIndex: -1,
-    formElements: {},
-    validationRules: {
-        name: /^[a-zA-Z\s]{2,50}$/,
-        studentId: /^[A-Za-z0-9]{3,20}$/,
-        email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        phone: /^[0-9]{10}$/
-    }
-};
+document.addEventListener('DOMContentLoaded', () => {
 
-document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
-});
+    // API KEY 
+    const API_KEY = "7a8abe0f1d3b447b844123111251607"; 
 
-function initializeApp() {
-    cacheFormElements();
-    loadStoredData();
-    bindEventListeners();
-    refreshDisplay();
-}
+    // ELEMENT REFERENCES
+    const cityInput = document.getElementById('city-input');
+    const searchBtn = document.getElementById('search-btn');
+    const currentLocationBtn = document.getElementById('current-location-btn');
+    const loader = document.getElementById('loader');
+    const errorMessage = document.getElementById('error-message');
+    const weatherDisplay = document.getElementById('weather-display');
+    const currentWeatherCard = document.getElementById('current-weather-card');
+    const forecastCardsContainer = document.getElementById('forecast-cards');
+    const recentList = document.getElementById('recent-list');
+    const weatherApp = document.getElementById('weather-container');
 
-function cacheFormElements() {
-    AppState.formElements = {
-        form: document.getElementById('registrationForm'),
-        fullName: document.getElementById('fullName'),
-        studentID: document.getElementById('studentID'),
-        emailAddress: document.getElementById('emailAddress'),
-        phoneNumber: document.getElementById('phoneNumber'),
-        submitButton: document.getElementById('submitButton'),
-        cancelButton: document.getElementById('cancelButton'),
-        tableBody: document.getElementById('studentTableBody'),
-        emptyState: document.getElementById('emptyState'),
-        totalCount: document.getElementById('totalCount'),
-        searchQuery: document.getElementById('searchQuery')
-    };
-}
+    searchBtn.addEventListener('click', handleSearch);
+    cityInput.addEventListener('keyup', (e) => {
+        if (e.key === 'Enter') handleSearch();
+    });
+    currentLocationBtn.addEventListener('click', getCurrentLocationWeather);
 
-function bindEventListeners() {
-    AppState.formElements.form.addEventListener('submit', handleFormSubmission);
-    AppState.formElements.cancelButton.addEventListener('click', cancelEdit);
-}
-
-function handleFormSubmission(event) {
-    event.preventDefault();
-    if (!validateAllFields()) {
-        return;
-    }
-    const studentData = {
-        name: AppState.formElements.fullName.value.trim(),
-        id: AppState.formElements.studentID.value.trim(),
-        email: AppState.formElements.emailAddress.value.trim(),
-        phone: AppState.formElements.phoneNumber.value.trim(),
-        timestamp: new Date().toISOString()
-    };
-    if (AppState.editingIndex >= 0) {
-        updateExistingStudent(studentData);
-    } else {
-        addNewStudent(studentData);
-    }
-    persistData();
-    refreshDisplay();
-    resetForm();
-}
-
-function validateAllFields() {
-    let allValid = true;
-    const validations = [
-        { field: 'fullName', rule: 'name', message: 'Name must be 2-50 characters, letters only' },
-        { field: 'studentID', rule: 'studentId', message: 'Student ID must be 3-20 characters, alphanumeric' },
-        { field: 'emailAddress', rule: 'email', message: 'Please enter a valid email address' },
-        { field: 'phoneNumber', rule: 'phone', message: 'Phone number must be exactly 10 digits' }
-    ];
-    validations.forEach(validation => {
-        const value = AppState.formElements[validation.field].value.trim();
-        const isValid = AppState.validationRules[validation.rule].test(value);
-        if (!isValid) {
-            showFieldError(validation.field, validation.message);
-            allValid = false;
+    // HANDLER SEARCH
+    function handleSearch() {
+        const city = cityInput.value.trim();
+        if (city) {
+            fetchWeatherData(city);
         } else {
-            clearFieldError(validation.field);
+            showError("Please enter a city name.");
         }
-    });
-    if (allValid) {
-        const studentId = AppState.formElements.studentID.value.trim();
-        const isDuplicate = AppState.students.some((student, index) => 
-            student.id === studentId && index !== AppState.editingIndex
+    }
+
+    // CURRENT LOCATION HANDLER
+
+    function getCurrentLocationWeather() {
+        if (!navigator.geolocation) {
+            showError("Geolocation is not supported by your browser.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                fetchWeatherData(`${latitude},${longitude}`);
+            },
+            () => {
+                showError("Unable to retrieve your location. Please grant permission.");
+            }
         );
-        if (isDuplicate) {
-            showFieldError('studentID', 'This Student ID is already registered');
-            allValid = false;
+    }
+    
+    // FETCH DATA
+    async function fetchWeatherData(query) {
+        showLoading(true);
+        try {
+            const response = await fetch(`https://api.weatherapi.com/v1/forecast.json?key=${API_KEY}&q=${query}&days=5`);
+            
+            if (!response.ok) {
+                
+                const errorData = await response.json().catch(() => ({})); // JSON OR EMPTY
+                const message = errorData?.error?.message || `Error: ${response.statusText}`;
+                throw new Error(message);
+            }
+            
+            const data = await response.json();
+
+            // VALIDATION
+
+            const isCityNameQuery = isNaN(query.charAt(0));
+            if (isCityNameQuery && !data.location.name.toLowerCase().includes(query.toLowerCase())) {
+                 throw new Error(`City not found. Please check the spelling and try again.`);
+            }
+
+            updateUI(data);
+            addToRecentSearches(data.location.name);
+
+        } catch (error) {
+            // ERROR HANDLING
+            console.log('An error was caught!', error);
+            showError(error.message);
+        } finally {
+            
+            showLoading(false);
         }
     }
-    return allValid;
-}
 
-function showFieldError(fieldName, message) {
-    const input = AppState.formElements[fieldName];
-    const validationMessage = input.nextElementSibling;
-    input.classList.add('invalid');
-    if (validationMessage && validationMessage.classList.contains('validation-message')) {
-        validationMessage.textContent = message;
-        validationMessage.classList.add('visible');
-    }
-}
 
-function clearFieldError(fieldName) {
-    const input = AppState.formElements[fieldName];
-    const validationMessage = input.nextElementSibling;
-    input.classList.remove('invalid');
-    if (validationMessage && validationMessage.classList.contains('validation-message')) {
-        validationMessage.classList.remove('visible');
-    }
-}
+    // UI FUNCTION
+    function updateUI(data) {
+        errorMessage.classList.add('hidden'); // HIDE PREVIOUS ERROR
+        const { location, current, forecast } = data;
 
-function addNewStudent(studentData) {
-    AppState.students.push(studentData);
-    showNotification('Student registered successfully!', 'success');
-}
-
-function updateExistingStudent(studentData) {
-    AppState.students[AppState.editingIndex] = studentData;
-    showNotification('Student information updated successfully!', 'success');
-}
-
-function refreshDisplay() {
-    updateStudentTable();
-    updateAnalytics();
-}
-
-function updateStudentTable() {
-    const tbody = AppState.formElements.tableBody;
-    const emptyState = AppState.formElements.emptyState;
-    if (AppState.students.length === 0) {
-        tbody.innerHTML = '';
-        emptyState.style.display = 'block';
-        return;
-    }
-    emptyState.style.display = 'none';
-    tbody.innerHTML = AppState.students.map((student, index) => `
-        <tr class="table-row">
-            <td class="table-cell">${index + 1}</td>
-            <td class="table-cell">${student.name}</td>
-            <td class="table-cell">${student.id}</td>
-            <td class="table-cell">${student.email}</td>
-            <td class="table-cell">${student.phone}</td>
-            <td class="table-cell">
-                <div class="action-group">
-                    <button class="btn btn-edit btn-small" onclick="editStudent(${index})">Edit</button>
-                    <button class="btn btn-delete btn-small" onclick="removeStudent(${index})">Delete</button>
+        // 1. Update Current Weather
+        currentWeatherCard.innerHTML = `
+            <div class="text-center">
+                <h2 class="text-2xl font-bold">${location.name}, ${location.country}</h2>
+                <p class="text-gray-600">${new Date(location.localtime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <img src="https:${current.condition.icon}" alt="${current.condition.text}" class="mx-auto w-24 h-24">
+                <p class="text-5xl font-extrabold">${Math.round(current.temp_c)}°C</p>
+                <p class="text-lg font-semibold">${current.condition.text}</p>
+                <div class="flex justify-around mt-4 text-gray-700">
+                    <span><i class="fa-solid fa-wind mr-1"></i> ${current.wind_kph} kph</span>
+                    <span><i class="fa-solid fa-droplet mr-1"></i> ${current.humidity}%</span>
                 </div>
-            </td>
-        </tr>
-    `).join('');
-}
+            </div>
+        `;
 
-function updateAnalytics() {
-    AppState.formElements.totalCount.textContent = AppState.students.length;
-}
+        // 2. Update 5-Day Forecast
+        forecastCardsContainer.innerHTML = ''; // Clear old forecast
+        forecast.forecastday.forEach(day => {
+            const forecastDate = new Date(day.date_epoch * 1000); 
+            
+            const card = document.createElement('div');
+            card.className = 'bg-white/70 p-4 rounded-lg text-center hover:scale-105 transition-transform duration-300';
+            card.innerHTML = `
+                <p class="font-bold">${forecastDate.toLocaleDateString('en-US', { weekday: 'short' })}</p>
+                <img src="https:${day.day.condition.icon}" alt="${day.day.condition.text}" class="mx-auto w-12 h-12">
+                <p class="font-semibold">${Math.round(day.day.maxtemp_c)}° / ${Math.round(day.day.mintemp_c)}°</p>
+            `;
+            forecastCardsContainer.appendChild(card);
+        });
 
-window.editStudent = function(index) {
-    AppState.editingIndex = index;
-    const student = AppState.students[index];
-    AppState.formElements.fullName.value = student.name;
-    AppState.formElements.studentID.value = student.id;
-    AppState.formElements.emailAddress.value = student.email;
-    AppState.formElements.phoneNumber.value = student.phone;
-    AppState.formElements.submitButton.textContent = 'Update Student';
-    AppState.formElements.cancelButton.style.display = 'inline-block';
-    AppState.formElements.form.scrollIntoView({ behavior: 'smooth' });
-}
-
-window.removeStudent = function(index) {
-    if (confirm('Are you sure you want to remove this student from the system?')) {
-        AppState.students.splice(index, 1);
-        persistData();
-        refreshDisplay();
-        showNotification('Student removed successfully!', 'success');
+        // 3. Update Background
+        updateBackground(current.condition.code);
+        
+        // 4. Animate the display
+        weatherDisplay.classList.remove('hidden');
+        currentWeatherCard.classList.add('fade-in');
+        forecastCardsContainer.classList.add('fade-in');
     }
-}
+    
+    
+    // UPDATING BACKGROUND
+    // AS THE CONDITION THAT THE DAY IS RAINY , CLOUDY BASED ON THE DATA CALCULATION AND API
+    // WE GET THE UPDATED BACKGROUND
 
-function cancelEdit() {
-    resetForm();
-}
-
-function resetForm() {
-    AppState.editingIndex = -1;
-    AppState.formElements.form.reset();
-    AppState.formElements.submitButton.textContent = 'Register Student';
-    AppState.formElements.cancelButton.style.display = 'none';
-    const inputs = document.querySelectorAll('.form-input');
-    const validations = document.querySelectorAll('.validation-message');
-    inputs.forEach(input => input.classList.remove('invalid'));
-    validations.forEach(validation => validation.classList.remove('visible'));
-}
-
-window.performSearch = function() {
-    const searchTerm = AppState.formElements.searchQuery.value.toLowerCase();
-    const rows = document.querySelectorAll('.table-row');
-    rows.forEach(row => {
-        const rowText = row.textContent.toLowerCase();
-        row.style.display = rowText.includes(searchTerm) ? '' : 'none';
-    });
-}
-
-function persistData() {
-    try {
-        localStorage.setItem('smportal_v1_students', JSON.stringify(AppState.students));
-    } catch (error) {
-        showNotification('Error saving data to storage!', 'error');
-    }
-}
-
-function loadStoredData() {
-    try {
-        const stored = localStorage.getItem('smportal_v1_students');
-        if (stored) {
-            AppState.students = JSON.parse(stored);
+    function updateBackground(conditionCode) {
+        let imageUrl = 'https://images.unsplash.com/photo-1691739263748-7b502866d43a?q=80&w=2070&auto=format&fit=crop'; //DEFAULT
+        if (conditionCode === 1000) {
+            imageUrl = 'https://images.unsplash.com/photo-1601297183305-6df142704ea2?q=80&w=1974&auto=format&fit=crop'; //SUNNY
+        } else if ([1003, 1006, 1009].includes(conditionCode)) {
+            imageUrl = 'https://images.unsplash.com/photo-1748251736653-b658a4a2b642?q=80&w=1170&auto=format&fit=crop'; //CLOUDY
+        } else if ([1063, 1180, 1183, 1186, 1189, 1192, 1195, 1240, 1243, 1246].includes(conditionCode)) {
+            imageUrl = 'https://images.unsplash.com/photo-1736098740424-dd4e4e3b7fa0?q=80&w=1188&auto=format&fit=crop'; //RAINY
+        } else if ([1087, 1273, 1276].includes(conditionCode)) {
+            imageUrl = 'https://images.unsplash.com/photo-1663877024534-234d6fe2c423?q=80&w=1170&auto=format&fit=crop'; //THUNDERSTROM
+        } else if ([1066, 1114, 1210, 1213, 1216, 1219, 1222, 1225, 1255, 1258].includes(conditionCode)) {
+            imageUrl = 'https://images.unsplash.com/photo-1612864197149-686b29cb4bea?q=80&w=1170&auto=format&fit=crop'; // SNOW
         }
-    } catch (error) {
-        showNotification('Error loading saved data!', 'error');
-        AppState.students = [];
+        weatherApp.style.backgroundImage = `url('${imageUrl}')`;
     }
-}
 
-window.exportStudentData = function() {
-    if (AppState.students.length === 0) {
-        showNotification('No student data available to export!', 'error');
-        return;
+    // LOADER CODE
+    function showLoading(isLoading) {
+        loader.classList.toggle('hidden', !isLoading);
+        if (isLoading) {
+            errorMessage.classList.add('hidden');
+            weatherDisplay.classList.add('hidden');
+        }
     }
-    const csvHeaders = '\uFEFFFull Name,Student ID,Email Address,Phone Number,Registration Date\n';
-    const csvData = AppState.students.map(student => {
-        const date = new Date(student.timestamp).toLocaleDateString();
-        return `"${student.name}","${student.id}","${student.email}","${student.phone}","${date}"`;
-    }).join('\n');
-    const csvContent = csvHeaders + csvData;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const downloadLink = document.createElement('a');
-    downloadLink.href = url;
-    downloadLink.download = `student_database_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(url);
-    showNotification('Student data exported successfully!', 'success');
-}
 
-window.clearAllData = function() {
-    if (confirm('Warning: This will permanently delete all student records. This action cannot be undone. Are you sure?')) {
-        AppState.students = [];
-        persistData();
-        refreshDisplay();
-        resetForm();
-        showNotification('All student data has been cleared!', 'success');
+    function showError(message) {
+        console.log('The showError function is running with message:', message);
+        console.log('The error message element is:', errorMessage); 
+        
+        if (errorMessage) {
+            errorMessage.textContent = `⚠️ ${message}`;
+            errorMessage.classList.remove('hidden');
+        }
+        weatherDisplay.classList.add('hidden');
     }
-}
+    
+    
+    //RECENT SEARCHES
+    function getRecentSearches() {
+        return JSON.parse(localStorage.getItem('recentSearches')) || [];
+    }
 
-function showNotification(message, type) {
-    const notification = document.getElementById('alertNotification');
-    notification.textContent = message;
-    notification.className = `notification ${type}`;
-    notification.classList.add('show');
-    setTimeout(() => {
-        notification.classList.remove('show');
-    }, 4000);
-}
+    // ADD RECENT SEARCH TO A COLUMN
+    // LOGIC BEHIND THAT
+    // USING LOCAL STORAGE AND WHEN CLICKED THE BUTTON 
+    // OF THE RECENT SEARCH CITY/AREA I FEED TO THE 
+    // FETCH WEATHER DATA FUNCTION
+    function addToRecentSearches(city) {
+        let searches = getRecentSearches();
+        searches = searches.filter(s => s.toLowerCase() !== city.toLowerCase());
+        searches.unshift(city);
+        localStorage.setItem('recentSearches', JSON.stringify(searches.slice(0, 5)));
+        displayRecentSearches();
+    }
+
+
+    function displayRecentSearches() {
+        recentList.innerHTML = '';
+        const searches = getRecentSearches();
+        if (searches.length === 0) {
+            recentList.innerHTML = `<li class="text-gray-500">No recent searches.</li>`;
+            return;
+        }
+        searches.forEach(city => {
+            const li = document.createElement('li');
+            li.className = 'cursor-pointer p-2 rounded-md hover:bg-gray-200';
+            li.textContent = city;
+            li.addEventListener('click', () => fetchWeatherData(city));
+            recentList.appendChild(li);
+        });
+    }
+
+    // --- INITIALIZATION ---
+    function init() {
+        displayRecentSearches();
+    }
+
+    init();
+});

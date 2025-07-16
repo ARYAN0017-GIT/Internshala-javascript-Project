@@ -3,83 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Student Management Portal</title>
+    <title>Weather Forecast</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
-<body>
-    <main class="app-container">
-        <header class="hero-section glass">
-            <h1 class="hero-title">Student Management Portal</h1>
-            <p class="hero-subtitle">Advanced Student Registration & Analytics System</p>
-        </header>
+<body class="bg-gray-200">
 
-        <div class="dashboard-grid">
-            <section class="registration-panel glass">
-                <h2 class="panel-header">Student Registration</h2>
-                <form id="registrationForm">
-                    <div class="input-group">
-                        <label class="input-label" for="fullName">Full Name</label>
-                        <input type="text" id="fullName" class="form-input" required>
-                        <div class="validation-message">Please enter a valid full name</div>
-                    </div>
-                    <div class="input-group">
-                        <label class="input-label" for="studentID">Student ID</label>
-                        <input type="text" id="studentID" class="form-input" required>
-                        <div class="validation-message">Please enter a valid student ID</div>
-                    </div>
-                    <div class="input-group">
-                        <label class="input-label" for="emailAddress">Email Address</label>
-                        <input type="email" id="emailAddress" class="form-input" required>
-                        <div class="validation-message">Please enter a valid email address</div>
-                    </div>
-                    <div class="input-group">
-                        <label class="input-label" for="phoneNumber">Phone Number</label>
-                        <input type="tel" id="phoneNumber" class="form-input" required>
-                        <div class="validation-message">Please enter a valid 10-digit phone number</div>
-                    </div>
-                    <button type="submit" class="btn btn-primary" id="submitButton">Register Student</button>
-                    <button type="button" class="btn btn-secondary" id="cancelButton" style="display: none;">Cancel Edit</button>
-                </form>
-            </section>
+    <div id="weather-container" class="min-h-screen flex items-center justify-center p-4 transition-all duration-1000">
+        <div class="w-full max-w-6xl mx-auto bg-white/70 backdrop-blur-lg rounded-xl shadow-2xl p-6 md:p-8">
 
-            <aside class="analytics-panel glass">
-                <h2 class="panel-header">Analytics Dashboard</h2>
-                <div class="metric-card">
-                    <div class="metric-value" id="totalCount">0</div>
-                    <div class="metric-label">Registered Students</div>
+            <!-- Search and Location -->
+            <header class="mb-6">
+                <div class="flex flex-col md:flex-row gap-4">
+                    <div class="relative flex-grow">
+                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="city-input" placeholder="Search for a city..." class="w-full bg-gray-100 rounded-full py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button id="search-btn" class="bg-blue-600 text-white font-bold rounded-full px-6 py-3 hover:bg-blue-700 transition">Search</button>
+                    <button id="current-location-btn" class="bg-gray-700 text-white font-bold rounded-full px-6 py-3 hover:bg-gray-800 transition">
+                        <i class="fa-solid fa-location-crosshairs mr-2"></i>Current Location
+                    </button>
                 </div>
-                <button class="btn btn-success" onclick="exportStudentData()">Export to CSV</button>
-                <button class="btn btn-warning" onclick="clearAllData()">Clear Database</button>
-            </aside>
+            </header>
+
+            <!-- Weather Display -->
+            <main id="app-content" class="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                
+                <!-- Loading Spinner -->
+                <div id="loader" class="hidden col-span-full flex justify-center items-center h-64">
+                    <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
+                </div>
+
+                <!-- Error Message -->
+                <div id="error-message" class="hidden col-span-full bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg text-center">
+                    <!-- Error content -->
+                </div>
+
+                <!-- Weather Data Display -->
+                <div id="weather-display" class="hidden lg:col-span-3 grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                    
+                    <!-- Left Column: Current Weather & Details -->
+                    <section class="lg:col-span-1 space-y-6">
+                        <div id="current-weather-card" class="bg-white/50 p-6 rounded-lg shadow-md">
+                            <!-- Current weather here -->
+                        </div>
+                        <div id="recent-searches-card" class="bg-white/50 p-6 rounded-lg shadow-md">
+                            <h3 class="font-bold text-lg mb-4">Recent Searches</h3>
+                            <ul id="recent-list" class="space-y-2">
+                                <!-- Recent searches here -->
+                            </ul>
+                        </div>
+                    </section>
+
+                    <!-- Right Column: Forecast -->
+                    <section id="forecast-container" class="lg:col-span-2 bg-white/50 p-6 rounded-lg shadow-md">
+                        <h3 class="font-bold text-lg mb-4">5-Day Forecast</h3>
+                        <div id="forecast-cards" class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                            <!-- Forecast cards injected here -->
+                        </div>
+                    </section>
+                </div>
+            </main>
         </div>
-
-        <section class="student-directory glass">
-            <h2 class="panel-header">Student Directory</h2>
-            <div class="search-container">
-                <input type="text" id="searchQuery" class="search-input" placeholder="Search by name, ID, email, or phone..." oninput="performSearch()">
-            </div>
-            <table class="data-table" id="studentTable">
-                <thead class="table-header">
-                    <tr>
-                        <th>No.</th>
-                        <th>Full Name</th>
-                        <th>Student ID</th>
-                        <th>Email</th>
-                        <th>Phone</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="studentTableBody">
-                </tbody>
-            </table>
-            <div class="empty-state" id="emptyState" style="display: none;">
-                No students found. Register your first student to get started!
-            </div>
-        </section>
-    </main>
-
-    <div class="notification" id="alertNotification"></div>
-
+    </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
